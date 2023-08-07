@@ -56,7 +56,7 @@ namespace ORB_SLAM2
     {
         mbFinished = false;
 
-        while (1)
+        while (TRUE)
         {
             // Check if there are keyframes in the queue
             if (CheckNewKeyFrames())
