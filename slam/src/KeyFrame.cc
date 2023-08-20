@@ -890,13 +890,24 @@ namespace ORB_SLAM2
         mvOrderedWeights = vector<int>(lWs.begin(), lWs.end());
     }
 
-    set<KeyFrame *> KeyFrame::GetConnectedKeyFrames()
+    //set<KeyFrame *> KeyFrame::GetConnectedKeyFrames()
+    //{
+    //    unique_lock<mutex> lock(mMutexConnections);
+    //    set<KeyFrame *> s;
+    //    for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(); mit != mConnectedKeyFrameWeights.end(); mit++)
+    //        s.insert(mit->first);
+    //    return s;
+    //}
+
+    unordered_map<KeyFrame*, int> KeyFrame::GetConnectedKeyFrames()
     {
         unique_lock<mutex> lock(mMutexConnections);
-        set<KeyFrame *> s;
-        for (map<KeyFrame *, int>::iterator mit = mConnectedKeyFrameWeights.begin(); mit != mConnectedKeyFrameWeights.end(); mit++)
-            s.insert(mit->first);
-        return s;
+        unordered_map<KeyFrame*, int> connectedKeyFrames;
+        for (const auto& pair : mConnectedKeyFrameWeights)
+        {
+            connectedKeyFrames.emplace(pair.first, pair.second);
+        }
+        return connectedKeyFrames;
     }
 
     vector<KeyFrame *> KeyFrame::GetVectorCovisibleKeyFrames()

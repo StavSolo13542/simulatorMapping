@@ -56,7 +56,7 @@ namespace ORB_SLAM2
     {
         mbFinished = false;
 
-        while (TRUE)
+        while (true)
         {
             // Check if there are keyframes in the queue
             if (CheckNewKeyFrames())
@@ -119,16 +119,20 @@ namespace ORB_SLAM2
         // Compute reference BoW similarity score
         // This is the lowest score to a connected keyframe in the covisibility graph
         // We will impose loop candidates to have a higher similarity than this
-        const vector<KeyFrame *> vpConnectedKeyFrames = mpCurrentKF->GetVectorCovisibleKeyFrames();
-        const DBoW2::BowVector &CurrentBowVec = mpCurrentKF->mBowVec;
+        //const vector<KeyFrame *> vpConnectedKeyFrames = mpCurrentKF->GetVectorCovisibleKeyFrames();
+        //const DBoW2::BowVector &CurrentBowVec = mpCurrentKF->mBowVec;
+        const auto vpConnectedKeyFrames = mpCurrentKF->GetVectorCovisibleKeyFrames();
+        const auto& CurrentBowVec = mpCurrentKF->mBowVec;
         float minScore = 1;
-        for (size_t i = 0; i < vpConnectedKeyFrames.size(); i++)
+        //for (size_t i = 0; i < vpConnectedKeyFrames.size(); i++)
+        for (const auto pKF : vpConnectedKeyFrames)
         {
-            KeyFrame *pKF = vpConnectedKeyFrames[i];
+            //KeyFrame *pKF = vpConnectedKeyFrames[i];
             if (pKF->isBad())
                 continue;
-            const DBoW2::BowVector &BowVec = pKF->mBowVec;
 
+            //const DBoW2::BowVector &BowVec = pKF->mBowVec;
+            const auto& BowVec = pKF->mBowVec;
             float score = mpORBVocabulary->score(CurrentBowVec, BowVec);
 
             if (score < minScore)
@@ -136,7 +140,8 @@ namespace ORB_SLAM2
         }
 
         // Query the database imposing the minimum score
-        vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
+        //vector<KeyFrame *> vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
+        auto vpCandidateKFs = mpKeyFrameDB->DetectLoopCandidates(mpCurrentKF, minScore);
 
         // If there are no loop candidates, just add new keyframe and return false
         // BAR
@@ -156,23 +161,31 @@ namespace ORB_SLAM2
 
         vector<ConsistentGroup> vCurrentConsistentGroups;
         vector<bool> vbConsistentGroup(mvConsistentGroups.size(), false);
-        for (size_t i = 0, iend = vpCandidateKFs.size(); i < iend; i++)
-        {
-            KeyFrame *pCandidateKF = vpCandidateKFs[i];
 
-            set<KeyFrame *> spCandidateGroup = pCandidateKF->GetConnectedKeyFrames();
-            spCandidateGroup.insert(pCandidateKF);
+        //for (size_t i = 0, iend = vpCandidateKFs.size(); i < iend; i++)
+        for (const auto pCandidateKF : vpCandidateKFs)
+        {
+            //KeyFrame *pCandidateKF = vpCandidateKFs[i];
+
+            //set<KeyFrame *> spCandidateGroup = pCandidateKF->GetConnectedKeyFrames();    //original version
+            //unordered_map<KeyFrame*, int> spCandidateGroup = pCandidateKF->GetConnectedKeyFrames();     // second version - is it more readable?
+            auto spCandidateGroup = pCandidateKF->GetConnectedKeyFrames();
+            // spCandidateGroup.insert(pCandidateKF);
 
             bool bEnoughConsistent = false;
             bool bConsistentForSomeGroup = false;
             for (size_t iG = 0, iendG = mvConsistentGroups.size(); iG < iendG; iG++)
             {
-                set<KeyFrame *> sPreviousGroup = mvConsistentGroups[iG].first;
+                //set<KeyFrame *> sPreviousGroup = mvConsistentGroups[iG].first;
+                unordered_map<KeyFrame*, int> sPreviousGroup = mvConsistentGroups[iG].first;
 
                 bool bConsistent = false;
-                for (set<KeyFrame *>::iterator sit = spCandidateGroup.begin(), send = spCandidateGroup.end(); sit != send; sit++)
+
+                //for (auto sit = spCandidateGroup.begin(), send = spCandidateGroup.end(); sit != send; sit++)
+                for (const auto& sit : spCandidateGroup)
                 {
-                    if (sPreviousGroup.count(*sit))
+                    //if (sPreviousGroup.count(*sit))
+                    if (sPreviousGroup.find(sit.first) != sPreviousGroup.end())
                     {
                         bConsistent = true;
                         bConsistentForSomeGroup = true;
@@ -184,12 +197,14 @@ namespace ORB_SLAM2
                 {
                     int nPreviousConsistency = mvConsistentGroups[iG].second;
                     int nCurrentConsistency = nPreviousConsistency + 1;
+
                     if (!vbConsistentGroup[iG])
                     {
                         ConsistentGroup cg = make_pair(spCandidateGroup, nCurrentConsistency);
                         vCurrentConsistentGroups.push_back(cg);
                         vbConsistentGroup[iG] = true; // this avoid to include the same group more than once
                     }
+
                     if (nCurrentConsistency >= mnCovisibilityConsistencyTh && !bEnoughConsistent)
                     {
                         mvpEnoughConsistentCandidates.push_back(pCandidateKF);
@@ -534,7 +549,8 @@ namespace ORB_SLAM2
         SearchAndFuse(CorrectedSim3);
 
         // After the MapPoint fusion, new links in the covisibility graph will appear attaching both sides of the loop
-        map<KeyFrame *, set<KeyFrame *>> LoopConnections;
+        //map<KeyFrame *, set<KeyFrame *>> LoopConnections;
+        map<KeyFrame*, unordered_map<KeyFrame*, int>> LoopConnections;
 
         for (vector<KeyFrame *>::iterator vit = mvpCurrentConnectedKFs.begin(), vend = mvpCurrentConnectedKFs.end(); vit != vend; vit++)
         {
@@ -661,12 +677,13 @@ namespace ORB_SLAM2
                 unique_lock<mutex> lock(mpMap->mMutexMapUpdate);
 
                 // Correct keyframes starting at map first keyframe
-                list<KeyFrame *> lpKFtoCheck(mpMap->mvpKeyFrameOrigins.begin(), mpMap->mvpKeyFrameOrigins.end());
+               // list<KeyFrame *> lpKFtoCheck(mpMap->mvpKeyFrameOrigins.begin(), mpMap->mvpKeyFrameOrigins.end());
+                vector<KeyFrame*> vpKFtoCheck(mpMap->mvpKeyFrameOrigins.begin(), mpMap->mvpKeyFrameOrigins.end());
 
-                while (!lpKFtoCheck.empty())
+                while (!vpKFtoCheck.empty())
                 {
 
-                    KeyFrame *pKF = lpKFtoCheck.front();
+                    KeyFrame *pKF = vpKFtoCheck.front();
                     if (!pKF)
                         continue;
 
@@ -690,12 +707,13 @@ namespace ORB_SLAM2
 
                             pChild->mnBAGlobalForKF = nLoopKF;
                         }
-                        lpKFtoCheck.push_back(pChild);
+                        vpKFtoCheck.push_back(pChild);
                     }
 
                     pKF->mTcwBefGBA = pKF->GetPose();
                     pKF->SetPose(pKF->mTcwGBA);
-                    lpKFtoCheck.pop_front();
+                    //lpKFtoCheck.pop_front();
+                    vpKFtoCheck.erase(vpKFtoCheck.begin());
                 }
 
                 // Correct MapPoints

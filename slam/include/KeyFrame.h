@@ -124,7 +124,8 @@ public:
     void EraseConnection(KeyFrame* pKF);
     void UpdateConnections();
     void UpdateBestCovisibles();
-    std::set<KeyFrame *> GetConnectedKeyFrames();
+    //std::set<KeyFrame *> GetConnectedKeyFrames();
+    std::unordered_map<KeyFrame*, int> GetConnectedKeyFrames(); // change the data stracture from set to dict
     std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
     std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int &N);
     std::vector<KeyFrame*> GetCovisiblesByWeight(const int &w);
