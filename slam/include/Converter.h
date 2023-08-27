@@ -40,14 +40,17 @@ public:
 
     static cv::Mat toCvMat(const g2o::SE3Quat &SE3);
     static cv::Mat toCvMat(const g2o::Sim3 &Sim3);
-    static cv::Mat toCvMat(const Eigen::Matrix<double,4,4> &m);
-    static cv::Mat toCvMat(const Eigen::Matrix3d &m);
+    static cv::Mat toCvMat4d(const Eigen::Matrix<double,4,4> &m);
+    static cv::Mat toCvMat3d(const Eigen::Matrix3d &m);
     static cv::Mat toCvMat(const Eigen::Matrix<double,3,1> &m);
+    static cv::Mat toCvMat(const Eigen::VectorXd& m);
+    static cv::Mat toCvMat(const Eigen::Vector4d& m);
     static cv::Mat toCvSE3(const Eigen::Matrix<double,3,3> &R, const Eigen::Matrix<double,3,1> &t);
 
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Mat &cvVector);
     static Eigen::Matrix<double,3,1> toVector3d(const cv::Point3f &cvPoint);
     static Eigen::Matrix<double,3,3> toMatrix3d(const cv::Mat &cvMat3);
+    static Eigen::Vector4d toVector4d(const cv::Mat& cvVector);
 
     static std::vector<float> toQuaternion(const cv::Mat &M);
 };

@@ -20,6 +20,7 @@
 
 
 #include "Converter.h"
+#include <opencv2/core/core.hpp>
 
 namespace ORB_SLAM2
 {
@@ -49,7 +50,7 @@ g2o::SE3Quat Converter::toSE3Quat(const cv::Mat &cvT)
 cv::Mat Converter::toCvMat(const g2o::SE3Quat &SE3)
 {
     Eigen::Matrix<double,4,4> eigMat = SE3.to_homogeneous_matrix();
-    return toCvMat(eigMat);
+    return toCvMat4d(eigMat);
 }
 
 cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3)
@@ -60,7 +61,7 @@ cv::Mat Converter::toCvMat(const g2o::Sim3 &Sim3)
     return toCvSE3(s*eigR,eigt);
 }
 
-cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
+cv::Mat Converter::toCvMat4d(const Eigen::Matrix<double,4,4> &m)
 {
     cv::Mat cvMat(4,4,CV_32F);
     for(int i=0;i<4;i++)
@@ -70,12 +71,20 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix<double,4,4> &m)
     return cvMat.clone();
 }
 
-cv::Mat Converter::toCvMat(const Eigen::Matrix3d &m)
+cv::Mat Converter::toCvMat3d(const Eigen::Matrix3d &m)
 {
     cv::Mat cvMat(3,3,CV_32F);
     for(int i=0;i<3;i++)
         for(int j=0; j<3; j++)
             cvMat.at<float>(i,j)=m(i,j);
+
+    return cvMat.clone();
+}
+cv::Mat Converter::toCvMat(const Eigen::VectorXd& m)
+{
+    cv::Mat cvMat(m.size(), 1, CV_32F);
+    for (int i = 0; i < m.size(); i++)
+        cvMat.at<float>(i) = m(i);
 
     return cvMat.clone();
 }
@@ -85,6 +94,15 @@ cv::Mat Converter::toCvMat(const Eigen::Matrix<double,3,1> &m)
     cv::Mat cvMat(3,1,CV_32F);
     for(int i=0;i<3;i++)
             cvMat.at<float>(i)=m(i);
+
+    return cvMat.clone();
+}
+
+cv::Mat Converter::toCvMat(const Eigen::Vector4d& m)
+{
+    cv::Mat cvMat(4, 1, CV_64F);
+    for (int i = 0; i < 4; i++)
+        cvMat.at<double>(i) = m(i);
 
     return cvMat.clone();
 }
@@ -132,6 +150,16 @@ Eigen::Matrix<double,3,3> Converter::toMatrix3d(const cv::Mat &cvMat3)
          cvMat3.at<float>(2,0), cvMat3.at<float>(2,1), cvMat3.at<float>(2,2);
 
     return M;
+}
+
+Eigen::Vector4d Converter::toVector4d(const cv::Mat& cvVector) {
+    assert(cvVector.rows == 4 && cvVector.cols == 1 && cvVector.type() == CV_64F);
+
+    Eigen::Vector4d v;
+    v << cvVector.at<double>(0), cvVector.at<double>(1),
+        cvVector.at<double>(2), cvVector.at<double>(3);
+
+    return v;
 }
 
 std::vector<float> Converter::toQuaternion(const cv::Mat &M)

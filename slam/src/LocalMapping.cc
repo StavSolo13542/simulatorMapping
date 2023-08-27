@@ -22,23 +22,28 @@
 #include "LoopClosing.h"
 #include "ORBmatcher.h"
 #include "Optimizer.h"
+#include "Converter.h"
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+#include <Eigen/Dense>
+#include <Eigen/SVD>
 
 #include <mutex>
 
 namespace ORB_SLAM2
 {
 
-    LocalMapping::LocalMapping(Map *pMap, const float bMonocular) : mbMonocular(bMonocular), mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
-                                                                    mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true)
+    LocalMapping::LocalMapping(Map* pMap, const float bMonocular) : mbMonocular(bMonocular), mbResetRequested(false), mbFinishRequested(false), mbFinished(true), mpMap(pMap),
+        mbAbortBA(false), mbStopped(false), mbStopRequested(false), mbNotStop(false), mbAcceptKeyFrames(true)
     {
     }
 
-    void LocalMapping::SetLoopCloser(LoopClosing *pLoopCloser)
+    void LocalMapping::SetLoopCloser(LoopClosing* pLoopCloser)
     {
         mpLoopCloser = pLoopCloser;
     }
 
-    void LocalMapping::SetTracker(Tracking *pTracker)
+    void LocalMapping::SetTracker(Tracking* pTracker)
     {
         mpTracker = pTracker;
     }
@@ -128,7 +133,7 @@ namespace ORB_SLAM2
         SetFinish();
     }
 
-    void LocalMapping::InsertKeyFrame(KeyFrame *pKF)
+    void LocalMapping::InsertKeyFrame(KeyFrame* pKF)
     {
         unique_lock<mutex> lock(mMutexNewKFs);
         mlNewKeyFrames.push_back(pKF);
@@ -153,11 +158,11 @@ namespace ORB_SLAM2
         mpCurrentKeyFrame->ComputeBoW();
 
         // Associate MapPoints to the new keyframe and update normal and descriptor
-        const vector<MapPoint *> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+        const vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
 
         for (size_t i = 0; i < vpMapPointMatches.size(); i++)
         {
-            MapPoint *pMP = vpMapPointMatches[i];
+            MapPoint* pMP = vpMapPointMatches[i];
             if (pMP)
             {
                 if (!pMP->isBad())
@@ -186,7 +191,7 @@ namespace ORB_SLAM2
     void LocalMapping::MapPointCulling()
     {
         // Check Recent Added MapPoints
-        list<MapPoint *>::iterator lit = mlpRecentAddedMapPoints.begin();
+        list<MapPoint*>::iterator lit = mlpRecentAddedMapPoints.begin();
         const unsigned long int nCurrentKFid = mpCurrentKeyFrame->mnId;
 
         int nThObs;
@@ -198,7 +203,7 @@ namespace ORB_SLAM2
 
         while (lit != mlpRecentAddedMapPoints.end())
         {
-            MapPoint *pMP = *lit;
+            MapPoint* pMP = *lit;
             if (pMP->isBad())
             {
                 lit = mlpRecentAddedMapPoints.erase(lit);
@@ -226,24 +231,35 @@ namespace ORB_SLAM2
         int nn = 10;
         if (mbMonocular)
             nn = 20;
-        const vector<KeyFrame *> vpNeighKFs = mpCurrentKeyFrame->GetBestCovisibilityKeyFrames(nn);
+        const vector<KeyFrame*> vpNeighKFs = mpCurrentKeyFrame->GetBestCovisibilityKeyFrames(nn);
 
         ORBmatcher matcher(0.6, false);
 
-        cv::Mat Rcw1 = mpCurrentKeyFrame->GetRotation();
-        cv::Mat Rwc1 = Rcw1.t();
-        cv::Mat tcw1 = mpCurrentKeyFrame->GetTranslation();
-        cv::Mat Tcw1(3, 4, CV_32F);
-        Rcw1.copyTo(Tcw1.colRange(0, 3));
-        tcw1.copyTo(Tcw1.col(3));
-        cv::Mat Ow1 = mpCurrentKeyFrame->GetCameraCenter();
+        /*cv::Mat Rcw1 = mpCurrentKeyFrame->GetRotation();
+        cv::Mat Rwc1 = Rcw1.t();								// rows * cols = 3 * 3
+        cv::Mat tcw1 = mpCurrentKeyFrame->GetTranslation(); 	// rows * cols = 3 * 1
+        cv::Mat Tcw1(3, 4, CV_32F);*/							// rows * cols = 3 * 4
 
-        const float &fx1 = mpCurrentKeyFrame->fx;
-        const float &fy1 = mpCurrentKeyFrame->fy;
-        const float &cx1 = mpCurrentKeyFrame->cx;
-        const float &cy1 = mpCurrentKeyFrame->cy;
-        const float &invfx1 = mpCurrentKeyFrame->invfx;
-        const float &invfy1 = mpCurrentKeyFrame->invfy;
+        Eigen::Matrix3d Rcw1 = Converter::toMatrix3d(mpCurrentKeyFrame->GetRotation());
+        Eigen::Matrix3d Rwc1 = Rcw1.transpose();
+        Eigen::Vector3d tcw1 = Converter::toVector3d(mpCurrentKeyFrame->GetTranslation());
+        Eigen::Matrix<double, 3, 4> Tcw1;
+
+
+        /*Rcw1.copyTo(Tcw1.colRange(0, 3));
+        tcw1.copyTo(Tcw1.col(3));
+        cv::Mat Ow1 = mpCurrentKeyFrame->GetCameraCenter();*/	// rows * cols = 3 * 1
+
+        Tcw1.block<3, 3>(0, 0) = Rcw1;
+        Tcw1.block<3, 1>(0, 3) = tcw1;
+        Eigen::Vector3d Ow1 = Converter::toVector3d(mpCurrentKeyFrame->GetCameraCenter());
+
+        const float& fx1 = mpCurrentKeyFrame->fx;
+        const float& fy1 = mpCurrentKeyFrame->fy;
+        const float& cx1 = mpCurrentKeyFrame->cx;
+        const float& cy1 = mpCurrentKeyFrame->cy;
+        const float& invfx1 = mpCurrentKeyFrame->invfx;
+        const float& invfy1 = mpCurrentKeyFrame->invfy;
 
         const float ratioFactor = 1.5f * mpCurrentKeyFrame->mfScaleFactor;
 
@@ -255,12 +271,16 @@ namespace ORB_SLAM2
             if (i > 0 && CheckNewKeyFrames())
                 return;
 
-            KeyFrame *pKF2 = vpNeighKFs[i];
+            KeyFrame* pKF2 = vpNeighKFs[i];
 
             // Check first that baseline is not too short
-            cv::Mat Ow2 = pKF2->GetCameraCenter();
-            cv::Mat vBaseline = Ow2 - Ow1;
-            const float baseline = cv::norm(vBaseline);
+            /*cv::Mat Ow2 = pKF2->GetCameraCenter(); 		// rows * cols = 3 * 1
+            cv::Mat vBaseline = Ow2 - Ow1;					// rows * cols = 3 * 1
+            const float baseline = cv::norm(vBaseline);*/
+
+            Eigen::Vector3d Ow2 = Converter::toVector3d(pKF2->GetRotation());
+            Eigen::Vector3d vBaseline = Ow2 - Ow1;
+            const float baseline = vBaseline.norm();
 
             if (!mbMonocular)
             {
@@ -277,48 +297,66 @@ namespace ORB_SLAM2
             }
 
             // Compute Fundamental Matrix
-            cv::Mat F12 = ComputeF12(mpCurrentKeyFrame, pKF2);
+            cv::Mat F12 = ComputeF12(mpCurrentKeyFrame, pKF2);	// rows * cols = 3 * 3
+            //Eigen::Vector3d F12 = Converter::toVector3d(ComputeF12(mpCurrentKeyFrame, pKF2));
 
             // Search matches that fullfil epipolar constraint
             vector<pair<size_t, size_t>> vMatchedIndices;
             matcher.SearchForTriangulation(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices, false);
 
-            cv::Mat Rcw2 = pKF2->GetRotation();
-            cv::Mat Rwc2 = Rcw2.t();
-            cv::Mat tcw2 = pKF2->GetTranslation();
-            cv::Mat Tcw2(3, 4, CV_32F);
-            Rcw2.copyTo(Tcw2.colRange(0, 3));
-            tcw2.copyTo(Tcw2.col(3));
+            /*cv::Mat Rcw2 = pKF2->GetRotation();
+            cv::Mat Rwc2 = Rcw2.t();					// rows * cols = 3 * 3
+            cv::Mat tcw2 = pKF2->GetTranslation();		// rows * cols = 3 * 1
+            cv::Mat Tcw2(3, 4, CV_32F);*/				// rows * cols = 3 * 4
 
-            const float &fx2 = pKF2->fx;
-            const float &fy2 = pKF2->fy;
-            const float &cx2 = pKF2->cx;
-            const float &cy2 = pKF2->cy;
-            const float &invfx2 = pKF2->invfx;
-            const float &invfy2 = pKF2->invfy;
+            Eigen::Matrix3d Rcw2 = Converter::toMatrix3d(pKF2->GetRotation());
+            Eigen::Matrix3d Rwc2 = Rcw2.transpose();
+            Eigen::Vector3d tcw2 = Converter::toVector3d(pKF2->GetTranslation());
+            Eigen::Matrix<double, 3, 4> Tcw2;
+
+            /*Rcw2.copyTo(Tcw2.colRange(0, 3));
+            tcw2.copyTo(Tcw2.col(3));*/
+
+            Tcw2.block<3, 3>(0, 0) = Rcw2;
+            Tcw2.block<3, 1>(0, 3) = tcw2;
+
+            const float& fx2 = pKF2->fx;
+            const float& fy2 = pKF2->fy;
+            const float& cx2 = pKF2->cx;
+            const float& cy2 = pKF2->cy;
+            const float& invfx2 = pKF2->invfx;
+            const float& invfy2 = pKF2->invfy;
 
             // Triangulate each match
             const int nmatches = vMatchedIndices.size();
             for (int ikp = 0; ikp < nmatches; ikp++)
             {
-                const int &idx1 = vMatchedIndices[ikp].first;
-                const int &idx2 = vMatchedIndices[ikp].second;
+                const int& idx1 = vMatchedIndices[ikp].first;
+                const int& idx2 = vMatchedIndices[ikp].second;
 
-                const cv::KeyPoint &kp1 = mpCurrentKeyFrame->mvKeysUn[idx1];
+                const cv::KeyPoint& kp1 = mpCurrentKeyFrame->mvKeysUn[idx1];
                 const float kp1_ur = mpCurrentKeyFrame->mvuRight[idx1];
                 bool bStereo1 = kp1_ur >= 0;
 
-                const cv::KeyPoint &kp2 = pKF2->mvKeysUn[idx2];
+                const cv::KeyPoint& kp2 = pKF2->mvKeysUn[idx2];
                 const float kp2_ur = pKF2->mvuRight[idx2];
                 bool bStereo2 = kp2_ur >= 0;
 
                 // Check parallax between rays
-                cv::Mat xn1 = (cv::Mat_<float>(3, 1) << (kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);
-                cv::Mat xn2 = (cv::Mat_<float>(3, 1) << (kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);
+                /*cv::Mat xn1 = (cv::Mat_<float>(3, 1) << (kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);	// rows * cols = 3 * 1
+                cv::Mat xn2 = (cv::Mat_<float>(3, 1) << (kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);*/	// rows * cols = 3 * 1
 
-                cv::Mat ray1 = Rwc1 * xn1;
-                cv::Mat ray2 = Rwc2 * xn2;
-                const float cosParallaxRays = ray1.dot(ray2) / (cv::norm(ray1) * cv::norm(ray2));
+                Eigen::Vector3d xn1((kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);
+                Eigen::Vector3d xn2((kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);
+
+
+                /*cv::Mat ray1 = Rwc1 * xn1;	// rows * cols = 3 * 1
+                cv::Mat ray2 = Rwc2 * xn2;*/	// rows * cols = 3 * 1
+                Eigen::Vector3d ray1 = Rwc1 * xn1;
+                Eigen::Vector3d ray2 = Rwc2 * xn2;
+
+                //const float cosParallaxRays = ray1.dot(ray2) / (cv::norm(ray1) * cv::norm(ray2));
+                const float cosParallaxRays = ray1.dot(ray2) / (ray1.norm() * ray2.norm());
 
                 float cosParallaxStereo = cosParallaxRays + 1;
                 float cosParallaxStereo1 = cosParallaxStereo;
@@ -331,53 +369,82 @@ namespace ORB_SLAM2
 
                 cosParallaxStereo = min(cosParallaxStereo1, cosParallaxStereo2);
 
-                cv::Mat x3D;
+                //cv::Mat x3D;		
+                Eigen::VectorXd x3D;
                 if (cosParallaxRays < cosParallaxStereo && cosParallaxRays > 0 && (bStereo1 || bStereo2 || cosParallaxRays < 0.9998))
                 {
                     // Linear Triangulation Method
-                    cv::Mat A(4, 4, CV_32F);
-                    A.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
-                    A.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
-                    A.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
-                    A.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
+                    //cv::Mat A(4, 4, CV_32F);		// rows * cols = 4 * 4
+                    Eigen::Matrix<double, 4, 4> A;
 
-                    cv::Mat w, u, vt;
-                    cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
+                    //A.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
+                    //A.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
+                    //A.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
+                    //A.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
 
-                    x3D = vt.row(3).t();
+                    A.row(0) = xn1(0) * Tcw1.row(2) - Tcw1.row(0);
+                    A.row(1) = xn1(1) * Tcw1.row(2) - Tcw1.row(1);
+                    A.row(2) = xn2(0) * Tcw2.row(2) - Tcw2.row(0);
+                    A.row(3) = xn2(1) * Tcw2.row(2) - Tcw2.row(1);
 
-                    if (x3D.at<float>(3) == 0)
+                    /*cv::Mat w, u, vt;		// w = rows * cols = 4 * 1 // u, vt = rows * cols = 4 * 4
+                    cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);*/
+                    Eigen::Vector4d w;
+                    Eigen::Matrix4d u, vt;
+                    Eigen::JacobiSVD<Eigen::Matrix4d> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
+                    w = svd.singularValues();
+                    u = svd.matrixU();
+                    vt = svd.matrixV().transpose();
+                    x3D = vt.col(3).head<4>();        // problem here - x3D is not a column, it is a cell by mistake.
+                    std::cout << "\nx3D dimensions: " << x3D.rows() << "x" << x3D.cols() << std::endl;
+                    std::cout << x3D(0) << " " << x3D(1) << " " << x3D(2) << " " << x3D(3);
+
+                    //x3D = vt.row(3).t();			// rows * cols = 4 * 1
+                    //if (x3D.at<float>(3) == 0)
+                    //    continue;
+
+                    if (x3D(3) == 0)
                         continue;
 
                     // Euclidean coordinates
-                    x3D = x3D.rowRange(0, 3) / x3D.at<float>(3);
+                    //x3D = x3D.rowRange(0, 3) / x3D.at<float>(3);
+                    x3D = x3D.head<3>() / x3D(3);
                 }
                 else if (bStereo1 && cosParallaxStereo1 < cosParallaxStereo2)
                 {
-                    x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
+                    //x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
+                    x3D = Converter::toVector4d(mpCurrentKeyFrame->UnprojectStereo(idx1));
                 }
                 else if (bStereo2 && cosParallaxStereo2 < cosParallaxStereo1)
                 {
-                    x3D = pKF2->UnprojectStereo(idx2);
+                    //x3D = pKF2->UnprojectStereo(idx2);
+                    x3D = Converter::toVector4d(pKF2->UnprojectStereo(idx2));
                 }
                 else
                     continue; // No stereo and very low parallax
 
-                cv::Mat x3Dt = x3D.t();
+
+                //cv::Mat x3Dt = x3D.t();		// x3D = rows * cols = 3 * 1  // x3Dt = rows * cols = 1 * 3
+                Eigen::VectorXd x3Dt = x3D.transpose();
 
                 // Check triangulation in front of cameras
-                float z1 = Rcw1.row(2).dot(x3Dt) + tcw1.at<float>(2);
+                //float z1 = Rcw1.row(2).dot(x3Dt) + tcw1.at<float>(2);
+                Eigen::RowVector3d camera_optical_axis = Rcw1.row(2);
+                float z1 = camera_optical_axis * (x3Dt) + tcw1(2);
                 if (z1 <= 0)
                     continue;
 
-                float z2 = Rcw2.row(2).dot(x3Dt) + tcw2.at<float>(2);
+                //float z2 = Rcw2.row(2).dot(x3Dt) + tcw2.at<float>(2);
+                float z2 = (Rcw2.row(2) * x3Dt).sum() + tcw2(2);
                 if (z2 <= 0)
                     continue;
 
                 // Check reprojection error in first keyframe
-                const float &sigmaSquare1 = mpCurrentKeyFrame->mvLevelSigma2[kp1.octave];
-                const float x1 = Rcw1.row(0).dot(x3Dt) + tcw1.at<float>(0);
-                const float y1 = Rcw1.row(1).dot(x3Dt) + tcw1.at<float>(1);
+                const float& sigmaSquare1 = mpCurrentKeyFrame->mvLevelSigma2[kp1.octave];
+                //const float x1 = Rcw1.row(0).dot(x3Dt) + tcw1.at<float>(0);
+                //const float y1 = Rcw1.row(1).dot(x3Dt) + tcw1.at<float>(1);
+                const float x1 = (Rcw1.row(0) * x3Dt).sum() + tcw1(0);
+                const float y1 = (Rcw1.row(1) * x3Dt).sum() + tcw1(1);
                 const float invz1 = 1.0 / z1;
 
                 if (!bStereo1)
@@ -403,8 +470,10 @@ namespace ORB_SLAM2
 
                 // Check reprojection error in second keyframe
                 const float sigmaSquare2 = pKF2->mvLevelSigma2[kp2.octave];
-                const float x2 = Rcw2.row(0).dot(x3Dt) + tcw2.at<float>(0);
-                const float y2 = Rcw2.row(1).dot(x3Dt) + tcw2.at<float>(1);
+                //const float x2 = Rcw2.row(0).dot(x3Dt) + tcw2.at<float>(0);
+                //const float y2 = Rcw2.row(1).dot(x3Dt) + tcw2.at<float>(1);
+                const float x2 = (Rcw2.row(0) * x3Dt).sum() + tcw2(0);
+                const float y2 = (Rcw2.row(1) * x3Dt).sum() + tcw2(1);
                 const float invz2 = 1.0 / z2;
                 if (!bStereo2)
                 {
@@ -428,13 +497,23 @@ namespace ORB_SLAM2
                 }
 
                 // Check scale consistency
-                cv::Mat normal1 = x3D - Ow1;
-                float dist1 = cv::norm(normal1);
+                //cv::Mat normal1 = x3D - Ow1;
+                //float dist1 = cv::norm(normal1);
+                Eigen::Vector3d normal1 = x3D - Ow1;		// rows * cols = 3 * 1
+                float dist1 = normal1.norm();
 
-                cv::Mat normal2 = x3D - Ow2;
-                float dist2 = cv::norm(normal2);
+                if (dist1 == 0)
+                    continue;
 
-                if (dist1 == 0 || dist2 == 0)
+                //cv::Mat normal2 = x3D - Ow2;
+                //float dist2 = cv::norm(normal2);
+                Eigen::Vector3d normal2 = x3D - Ow2;		// rows * cols = 3 * 1
+                float dist2 = normal2.norm();
+
+                //if (dist1 == 0 || dist2 == 0)
+                //    continue;
+
+                if (dist2 == 0)
                     continue;
 
                 const float ratioDist = dist2 / dist1;
@@ -446,7 +525,20 @@ namespace ORB_SLAM2
                     continue;
 
                 // Triangulation is succesfull
-                MapPoint *pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpMap);
+                //MapPoint* pMP = new MapPoint(Converter::toCvMat(x3D), mpCurrentKeyFrame, mpMap);
+                std::cout << "\nx3D dimensions: " << x3D.rows() << "x" << x3D.cols() << std::endl;
+                std::cout << x3D(0) << " " << x3D(1) << " " << x3D(2) << std::endl;
+                cv::Mat cvVector = ORB_SLAM2::Converter::toCvMat(x3D);
+                std::cout << "\ncvVector:\n";
+                for (int i = 0; i < cvVector.rows; i++)
+                {
+                    for (int j = 0; j < cvVector.cols; j++)
+                    {
+                        std::cout << cvVector.at<int>(i,j);
+                    }
+                    std::cout << "\n";;
+                }
+                MapPoint* pMP = new MapPoint(cvVector, mpCurrentKeyFrame, mpMap);
 
                 pMP->AddObservation(mpCurrentKeyFrame, idx1);
                 pMP->AddObservation(pKF2, idx2);
@@ -472,21 +564,21 @@ namespace ORB_SLAM2
         int nn = 10;
         if (mbMonocular)
             nn = 20;
-        const vector<KeyFrame *> vpNeighKFs = mpCurrentKeyFrame->GetBestCovisibilityKeyFrames(nn);
-        vector<KeyFrame *> vpTargetKFs;
-        for (vector<KeyFrame *>::const_iterator vit = vpNeighKFs.begin(), vend = vpNeighKFs.end(); vit != vend; vit++)
+        const vector<KeyFrame*> vpNeighKFs = mpCurrentKeyFrame->GetBestCovisibilityKeyFrames(nn);
+        vector<KeyFrame*> vpTargetKFs;
+        for (vector<KeyFrame*>::const_iterator vit = vpNeighKFs.begin(), vend = vpNeighKFs.end(); vit != vend; vit++)
         {
-            KeyFrame *pKFi = *vit;
+            KeyFrame* pKFi = *vit;
             if (pKFi->isBad() || pKFi->mnFuseTargetForKF == mpCurrentKeyFrame->mnId)
                 continue;
             vpTargetKFs.push_back(pKFi);
             pKFi->mnFuseTargetForKF = mpCurrentKeyFrame->mnId;
 
             // Extend to some second neighbors
-            const vector<KeyFrame *> vpSecondNeighKFs = pKFi->GetBestCovisibilityKeyFrames(5);
-            for (vector<KeyFrame *>::const_iterator vit2 = vpSecondNeighKFs.begin(), vend2 = vpSecondNeighKFs.end(); vit2 != vend2; vit2++)
+            const vector<KeyFrame*> vpSecondNeighKFs = pKFi->GetBestCovisibilityKeyFrames(5);
+            for (vector<KeyFrame*>::const_iterator vit2 = vpSecondNeighKFs.begin(), vend2 = vpSecondNeighKFs.end(); vit2 != vend2; vit2++)
             {
-                KeyFrame *pKFi2 = *vit2;
+                KeyFrame* pKFi2 = *vit2;
                 if (pKFi2->isBad() || pKFi2->mnFuseTargetForKF == mpCurrentKeyFrame->mnId || pKFi2->mnId == mpCurrentKeyFrame->mnId)
                     continue;
                 vpTargetKFs.push_back(pKFi2);
@@ -495,27 +587,27 @@ namespace ORB_SLAM2
 
         // Search matches by projection from current KF in target KFs
         ORBmatcher matcher;
-        vector<MapPoint *> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
-        for (vector<KeyFrame *>::iterator vit = vpTargetKFs.begin(), vend = vpTargetKFs.end(); vit != vend; vit++)
+        vector<MapPoint*> vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
+        for (vector<KeyFrame*>::iterator vit = vpTargetKFs.begin(), vend = vpTargetKFs.end(); vit != vend; vit++)
         {
-            KeyFrame *pKFi = *vit;
+            KeyFrame* pKFi = *vit;
 
             matcher.Fuse(pKFi, vpMapPointMatches);
         }
 
         // Search matches by projection from target KFs in current KF
-        vector<MapPoint *> vpFuseCandidates;
+        vector<MapPoint*> vpFuseCandidates;
         vpFuseCandidates.reserve(vpTargetKFs.size() * vpMapPointMatches.size());
 
-        for (vector<KeyFrame *>::iterator vitKF = vpTargetKFs.begin(), vendKF = vpTargetKFs.end(); vitKF != vendKF; vitKF++)
+        for (vector<KeyFrame*>::iterator vitKF = vpTargetKFs.begin(), vendKF = vpTargetKFs.end(); vitKF != vendKF; vitKF++)
         {
-            KeyFrame *pKFi = *vitKF;
+            KeyFrame* pKFi = *vitKF;
 
-            vector<MapPoint *> vpMapPointsKFi = pKFi->GetMapPointMatches();
+            vector<MapPoint*> vpMapPointsKFi = pKFi->GetMapPointMatches();
 
-            for (vector<MapPoint *>::iterator vitMP = vpMapPointsKFi.begin(), vendMP = vpMapPointsKFi.end(); vitMP != vendMP; vitMP++)
+            for (vector<MapPoint*>::iterator vitMP = vpMapPointsKFi.begin(), vendMP = vpMapPointsKFi.end(); vitMP != vendMP; vitMP++)
             {
-                MapPoint *pMP = *vitMP;
+                MapPoint* pMP = *vitMP;
                 if (!pMP)
                     continue;
                 if (pMP->isBad() || pMP->mnFuseCandidateForKF == mpCurrentKeyFrame->mnId)
@@ -531,7 +623,7 @@ namespace ORB_SLAM2
         vpMapPointMatches = mpCurrentKeyFrame->GetMapPointMatches();
         for (size_t i = 0, iend = vpMapPointMatches.size(); i < iend; i++)
         {
-            MapPoint *pMP = vpMapPointMatches[i];
+            MapPoint* pMP = vpMapPointMatches[i];
             if (pMP)
             {
                 if (!pMP->isBad())
@@ -546,7 +638,7 @@ namespace ORB_SLAM2
         mpCurrentKeyFrame->UpdateConnections();
     }
 
-    cv::Mat LocalMapping::ComputeF12(KeyFrame *&pKF1, KeyFrame *&pKF2)
+    cv::Mat LocalMapping::ComputeF12(KeyFrame*& pKF1, KeyFrame*& pKF2)
     {
         cv::Mat R1w = pKF1->GetRotation();
         cv::Mat t1w = pKF1->GetTranslation();
@@ -558,8 +650,8 @@ namespace ORB_SLAM2
 
         cv::Mat t12x = SkewSymmetricMatrix(t12);
 
-        const cv::Mat &K1 = pKF1->mK;
-        const cv::Mat &K2 = pKF2->mK;
+        const cv::Mat& K1 = pKF1->mK;
+        const cv::Mat& K2 = pKF2->mK;
 
         return K1.t().inv() * t12x * R12 * K2.inv();
     }
@@ -605,8 +697,8 @@ namespace ORB_SLAM2
             return;
         mbStopped = false;
         mbStopRequested = false;
-        for (list<KeyFrame *>::iterator lit = mlNewKeyFrames.begin(), lend = mlNewKeyFrames.end(); lit != lend; lit++)
-            delete *lit;
+        for (list<KeyFrame*>::iterator lit = mlNewKeyFrames.begin(), lend = mlNewKeyFrames.end(); lit != lend; lit++)
+            delete* lit;
         mlNewKeyFrames.clear();
 
         cout << "Local Mapping RELEASE" << endl;
@@ -647,12 +739,12 @@ namespace ORB_SLAM2
         // A keyframe is considered redundant if the 90% of the MapPoints it sees, are seen
         // in at least other 3 keyframes (in the same or finer scale)
         // We only consider close stereo points
-        vector<KeyFrame *> vpLocalKeyFrames = mpCurrentKeyFrame->GetVectorCovisibleKeyFrames();
+        vector<KeyFrame*> vpLocalKeyFrames = mpCurrentKeyFrame->GetVectorCovisibleKeyFrames();
         cv::Point3f current_pos(mpCurrentKeyFrame->GetCameraCenter());
 
-        for (vector<KeyFrame *>::iterator vit = vpLocalKeyFrames.begin(), vend = vpLocalKeyFrames.end(); vit != vend; vit++)
+        for (vector<KeyFrame*>::iterator vit = vpLocalKeyFrames.begin(), vend = vpLocalKeyFrames.end(); vit != vend; vit++)
         {
-            KeyFrame *pKF = *vit;
+            KeyFrame* pKF = *vit;
             // cv::Point3f pkf_pos(pKF->GetCameraCenter());
 
             // double dist_x = (current_pos.x - pkf_pos.x);
@@ -668,7 +760,7 @@ namespace ORB_SLAM2
             // continue;
             if (pKF->mnId == 0)
                 continue;
-            const vector<MapPoint *> vpMapPoints = pKF->GetMapPointMatches();
+            const vector<MapPoint*> vpMapPoints = pKF->GetMapPointMatches();
 
             int /*nObs = 2;
             if(mbMonocular)*/
@@ -678,7 +770,7 @@ namespace ORB_SLAM2
             int nMPs = 0;
             for (size_t i = 0, iend = vpMapPoints.size(); i < iend; i++)
             {
-                MapPoint *pMP = vpMapPoints[i];
+                MapPoint* pMP = vpMapPoints[i];
                 if (pMP)
                 {
                     if (!pMP->isBad())
@@ -692,15 +784,15 @@ namespace ORB_SLAM2
                         nMPs++;
                         if (pMP->Observations() > thObs)
                         {
-                            const int &scaleLevel = pKF->mvKeysUn[i].octave;
-                            const map<KeyFrame *, size_t> observations = pMP->GetObservations();
+                            const int& scaleLevel = pKF->mvKeysUn[i].octave;
+                            const map<KeyFrame*, size_t> observations = pMP->GetObservations();
                             int nObs = 0;
-                            for (map<KeyFrame *, size_t>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+                            for (map<KeyFrame*, size_t>::const_iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
                             {
-                                KeyFrame *pKFi = mit->first;
+                                KeyFrame* pKFi = mit->first;
                                 if (pKFi == pKF)
                                     continue;
-                                const int &scaleLeveli = pKFi->mvKeysUn[mit->second].octave;
+                                const int& scaleLeveli = pKFi->mvKeysUn[mit->second].octave;
 
                                 if (scaleLeveli <= scaleLevel + 1)
                                 {
@@ -723,11 +815,11 @@ namespace ORB_SLAM2
         }
     }
 
-    cv::Mat LocalMapping::SkewSymmetricMatrix(const cv::Mat &v)
+    cv::Mat LocalMapping::SkewSymmetricMatrix(const cv::Mat& v)
     {
         return (cv::Mat_<float>(3, 3) << 0, -v.at<float>(2), v.at<float>(1),
-                v.at<float>(2), 0, -v.at<float>(0),
-                -v.at<float>(1), v.at<float>(0), 0);
+            v.at<float>(2), 0, -v.at<float>(0),
+            -v.at<float>(1), v.at<float>(0), 0);
     }
 
     void LocalMapping::RequestReset()

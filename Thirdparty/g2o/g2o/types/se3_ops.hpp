@@ -24,7 +24,15 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-  Matrix3d skew(const Vector3d&v)
+#include <Eigen/Core>
+#include <Eigen/Geometry>
+typedef Eigen::Matrix3d Matrix3d;
+typedef Eigen::Vector3d Vector3d;
+typedef Eigen::Vector2d Vector2d;
+typedef Eigen::Vector4d Vector4d;
+
+
+Matrix3d skew(const Vector3d&v)
   {
     Matrix3d m;
     m.fill(0.);
