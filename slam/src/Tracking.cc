@@ -751,7 +751,7 @@ namespace ORB_SLAM2
         float medianDepth = pKFini->ComputeSceneMedianDepth(2);
         float invMedianDepth = 1.0f / medianDepth;
 
-        if (medianDepth < 0 || pKFcur->TrackedMapPoints(1) < 100)
+        if (medianDepth < 0 || pKFcur->TrackedMapPoints(1) < 30)
         {
             cout << "Wrong initialization, reseting... map points(100):"
                  << pKFcur->TrackedMapPoints(1)

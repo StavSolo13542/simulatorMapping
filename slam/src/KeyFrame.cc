@@ -833,6 +833,7 @@ namespace ORB_SLAM2
     cv::Mat KeyFrame::GetCameraCenter()
     {
         unique_lock<mutex> lock(mMutexPose);
+        //std::cout << "\nin KeyFrame::GetCameraCenter():\n" << Ow << std::endl;
         return Ow.clone();
     }
 
@@ -845,12 +846,14 @@ namespace ORB_SLAM2
     cv::Mat KeyFrame::GetRotation()
     {
         unique_lock<mutex> lock(mMutexPose);
+        //std::cout << "\nin KeyFrame::GetRotation():\n" << Tcw.rowRange(0, 3).colRange(0, 3) << std::endl;
         return Tcw.rowRange(0, 3).colRange(0, 3).clone();
     }
 
     cv::Mat KeyFrame::GetTranslation()
     {
         unique_lock<mutex> lock(mMutexPose);
+        //std::cout << "\nin KeyFrame::GetTranslation():\n" << Tcw.rowRange(0, 3).col(3) << std::endl;
         return Tcw.rowRange(0, 3).col(3).clone();
     }
 
@@ -1380,9 +1383,11 @@ namespace ORB_SLAM2
             cv::Mat x3Dc = (cv::Mat_<float>(3, 1) << x, y, z);
 
             unique_lock<mutex> lock(mMutexPose);
+            std::cout << "\nin KeyFrame::UnprojectStereo():\n" << Twc.rowRange(0, 3).colRange(0, 3) * x3Dc + Twc.rowRange(0, 3).col(3) << std::endl;
             return Twc.rowRange(0, 3).colRange(0, 3) * x3Dc + Twc.rowRange(0, 3).col(3);
         }
         else
+            std::cout << "\nin KeyFrame::UnprojectStereo():\n" << cv::Mat() << std::endl;
             return cv::Mat();
     }
 

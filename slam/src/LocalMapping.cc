@@ -235,24 +235,13 @@ namespace ORB_SLAM2
 
         ORBmatcher matcher(0.6, false);
 
-        /*cv::Mat Rcw1 = mpCurrentKeyFrame->GetRotation();
-        cv::Mat Rwc1 = Rcw1.t();								// rows * cols = 3 * 3
-        cv::Mat tcw1 = mpCurrentKeyFrame->GetTranslation(); 	// rows * cols = 3 * 1
-        cv::Mat Tcw1(3, 4, CV_32F);*/							// rows * cols = 3 * 4
-
-        Eigen::Matrix3d Rcw1 = Converter::toMatrix3d(mpCurrentKeyFrame->GetRotation());
-        Eigen::Matrix3d Rwc1 = Rcw1.transpose();
-        Eigen::Vector3d tcw1 = Converter::toVector3d(mpCurrentKeyFrame->GetTranslation());
-        Eigen::Matrix<double, 3, 4> Tcw1;
-
-
-        /*Rcw1.copyTo(Tcw1.colRange(0, 3));
+        cv::Mat Rcw1 = mpCurrentKeyFrame->GetRotation();
+        cv::Mat Rwc1 = Rcw1.t();
+        cv::Mat tcw1 = mpCurrentKeyFrame->GetTranslation();
+        cv::Mat Tcw1(3, 4, CV_32F);
+        Rcw1.copyTo(Tcw1.colRange(0, 3));
         tcw1.copyTo(Tcw1.col(3));
-        cv::Mat Ow1 = mpCurrentKeyFrame->GetCameraCenter();*/	// rows * cols = 3 * 1
-
-        Tcw1.block<3, 3>(0, 0) = Rcw1;
-        Tcw1.block<3, 1>(0, 3) = tcw1;
-        Eigen::Vector3d Ow1 = Converter::toVector3d(mpCurrentKeyFrame->GetCameraCenter());
+        cv::Mat Ow1 = mpCurrentKeyFrame->GetCameraCenter();
 
         const float& fx1 = mpCurrentKeyFrame->fx;
         const float& fy1 = mpCurrentKeyFrame->fy;
@@ -274,13 +263,9 @@ namespace ORB_SLAM2
             KeyFrame* pKF2 = vpNeighKFs[i];
 
             // Check first that baseline is not too short
-            /*cv::Mat Ow2 = pKF2->GetCameraCenter(); 		// rows * cols = 3 * 1
-            cv::Mat vBaseline = Ow2 - Ow1;					// rows * cols = 3 * 1
-            const float baseline = cv::norm(vBaseline);*/
-
-            Eigen::Vector3d Ow2 = Converter::toVector3d(pKF2->GetRotation());
-            Eigen::Vector3d vBaseline = Ow2 - Ow1;
-            const float baseline = vBaseline.norm();
+            cv::Mat Ow2 = pKF2->GetCameraCenter();
+            cv::Mat vBaseline = Ow2 - Ow1;
+            const float baseline = cv::norm(vBaseline);
 
             if (!mbMonocular)
             {
@@ -297,28 +282,18 @@ namespace ORB_SLAM2
             }
 
             // Compute Fundamental Matrix
-            cv::Mat F12 = ComputeF12(mpCurrentKeyFrame, pKF2);	// rows * cols = 3 * 3
-            //Eigen::Vector3d F12 = Converter::toVector3d(ComputeF12(mpCurrentKeyFrame, pKF2));
+            cv::Mat F12 = ComputeF12(mpCurrentKeyFrame, pKF2);
 
             // Search matches that fullfil epipolar constraint
-            vector<pair<size_t, size_t>> vMatchedIndices;
+            vector<pair<size_t, size_t> > vMatchedIndices;
             matcher.SearchForTriangulation(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices, false);
 
-            /*cv::Mat Rcw2 = pKF2->GetRotation();
-            cv::Mat Rwc2 = Rcw2.t();					// rows * cols = 3 * 3
-            cv::Mat tcw2 = pKF2->GetTranslation();		// rows * cols = 3 * 1
-            cv::Mat Tcw2(3, 4, CV_32F);*/				// rows * cols = 3 * 4
-
-            Eigen::Matrix3d Rcw2 = Converter::toMatrix3d(pKF2->GetRotation());
-            Eigen::Matrix3d Rwc2 = Rcw2.transpose();
-            Eigen::Vector3d tcw2 = Converter::toVector3d(pKF2->GetTranslation());
-            Eigen::Matrix<double, 3, 4> Tcw2;
-
-            /*Rcw2.copyTo(Tcw2.colRange(0, 3));
-            tcw2.copyTo(Tcw2.col(3));*/
-
-            Tcw2.block<3, 3>(0, 0) = Rcw2;
-            Tcw2.block<3, 1>(0, 3) = tcw2;
+            cv::Mat Rcw2 = pKF2->GetRotation();
+            cv::Mat Rwc2 = Rcw2.t();
+            cv::Mat tcw2 = pKF2->GetTranslation();
+            cv::Mat Tcw2(3, 4, CV_32F);
+            Rcw2.copyTo(Tcw2.colRange(0, 3));
+            tcw2.copyTo(Tcw2.col(3));
 
             const float& fx2 = pKF2->fx;
             const float& fy2 = pKF2->fy;
@@ -343,20 +318,12 @@ namespace ORB_SLAM2
                 bool bStereo2 = kp2_ur >= 0;
 
                 // Check parallax between rays
-                /*cv::Mat xn1 = (cv::Mat_<float>(3, 1) << (kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);	// rows * cols = 3 * 1
-                cv::Mat xn2 = (cv::Mat_<float>(3, 1) << (kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);*/	// rows * cols = 3 * 1
+                cv::Mat xn1 = (cv::Mat_<float>(3, 1) << (kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);
+                cv::Mat xn2 = (cv::Mat_<float>(3, 1) << (kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);
 
-                Eigen::Vector3d xn1((kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);
-                Eigen::Vector3d xn2((kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);
-
-
-                /*cv::Mat ray1 = Rwc1 * xn1;	// rows * cols = 3 * 1
-                cv::Mat ray2 = Rwc2 * xn2;*/	// rows * cols = 3 * 1
-                Eigen::Vector3d ray1 = Rwc1 * xn1;
-                Eigen::Vector3d ray2 = Rwc2 * xn2;
-
-                //const float cosParallaxRays = ray1.dot(ray2) / (cv::norm(ray1) * cv::norm(ray2));
-                const float cosParallaxRays = ray1.dot(ray2) / (ray1.norm() * ray2.norm());
+                cv::Mat ray1 = Rwc1 * xn1;
+                cv::Mat ray2 = Rwc2 * xn2;
+                const float cosParallaxRays = ray1.dot(ray2) / (cv::norm(ray1) * cv::norm(ray2));
 
                 float cosParallaxStereo = cosParallaxRays + 1;
                 float cosParallaxStereo1 = cosParallaxStereo;
@@ -369,82 +336,54 @@ namespace ORB_SLAM2
 
                 cosParallaxStereo = min(cosParallaxStereo1, cosParallaxStereo2);
 
-                //cv::Mat x3D;		
-                Eigen::VectorXd x3D;
-                if (cosParallaxRays < cosParallaxStereo && cosParallaxRays > 0 && (bStereo1 || bStereo2 || cosParallaxRays < 0.9998))
+                cv::Mat x3D;
+                if (cosParallaxRays < cosParallaxStereo && cosParallaxRays>0 && (bStereo1 || bStereo2 || cosParallaxRays < 0.9998))
                 {
                     // Linear Triangulation Method
-                    //cv::Mat A(4, 4, CV_32F);		// rows * cols = 4 * 4
-                    Eigen::Matrix<double, 4, 4> A;
+                    cv::Mat A(4, 4, CV_32F);
+                    A.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
+                    A.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
+                    A.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
+                    A.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
 
-                    //A.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
-                    //A.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
-                    //A.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
-                    //A.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
+                    cv::Mat w, u, vt;
+                    cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
-                    A.row(0) = xn1(0) * Tcw1.row(2) - Tcw1.row(0);
-                    A.row(1) = xn1(1) * Tcw1.row(2) - Tcw1.row(1);
-                    A.row(2) = xn2(0) * Tcw2.row(2) - Tcw2.row(0);
-                    A.row(3) = xn2(1) * Tcw2.row(2) - Tcw2.row(1);
+                    x3D = vt.row(3).t();
 
-                    /*cv::Mat w, u, vt;		// w = rows * cols = 4 * 1 // u, vt = rows * cols = 4 * 4
-                    cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);*/
-                    Eigen::Vector4d w;
-                    Eigen::Matrix4d u, vt;
-                    Eigen::JacobiSVD<Eigen::Matrix4d> svd(A, Eigen::ComputeFullU | Eigen::ComputeFullV);
-                    w = svd.singularValues();
-                    u = svd.matrixU();
-                    vt = svd.matrixV().transpose();
-                    x3D = vt.col(3).head<4>();        // problem here - x3D is not a column, it is a cell by mistake.
-                    std::cout << "\nx3D dimensions: " << x3D.rows() << "x" << x3D.cols() << std::endl;
-                    std::cout << x3D(0) << " " << x3D(1) << " " << x3D(2) << " " << x3D(3);
-
-                    //x3D = vt.row(3).t();			// rows * cols = 4 * 1
-                    //if (x3D.at<float>(3) == 0)
-                    //    continue;
-
-                    if (x3D(3) == 0)
+                    if (x3D.at<float>(3) == 0)
                         continue;
 
                     // Euclidean coordinates
-                    //x3D = x3D.rowRange(0, 3) / x3D.at<float>(3);
-                    x3D = x3D.head<3>() / x3D(3);
+                    x3D = x3D.rowRange(0, 3) / x3D.at<float>(3);
+
                 }
                 else if (bStereo1 && cosParallaxStereo1 < cosParallaxStereo2)
                 {
-                    //x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
-                    x3D = Converter::toVector4d(mpCurrentKeyFrame->UnprojectStereo(idx1));
+                    x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
                 }
                 else if (bStereo2 && cosParallaxStereo2 < cosParallaxStereo1)
                 {
-                    //x3D = pKF2->UnprojectStereo(idx2);
-                    x3D = Converter::toVector4d(pKF2->UnprojectStereo(idx2));
+                    x3D = pKF2->UnprojectStereo(idx2);
                 }
                 else
-                    continue; // No stereo and very low parallax
+                    continue; //No stereo and very low parallax
 
+                cv::Mat x3Dt = x3D.t();
 
-                //cv::Mat x3Dt = x3D.t();		// x3D = rows * cols = 3 * 1  // x3Dt = rows * cols = 1 * 3
-                Eigen::VectorXd x3Dt = x3D.transpose();
-
-                // Check triangulation in front of cameras
-                //float z1 = Rcw1.row(2).dot(x3Dt) + tcw1.at<float>(2);
-                Eigen::RowVector3d camera_optical_axis = Rcw1.row(2);
-                float z1 = camera_optical_axis * (x3Dt) + tcw1(2);
+                //Check triangulation in front of cameras
+                float z1 = Rcw1.row(2).dot(x3Dt) + tcw1.at<float>(2);
                 if (z1 <= 0)
                     continue;
 
-                //float z2 = Rcw2.row(2).dot(x3Dt) + tcw2.at<float>(2);
-                float z2 = (Rcw2.row(2) * x3Dt).sum() + tcw2(2);
+                float z2 = Rcw2.row(2).dot(x3Dt) + tcw2.at<float>(2);
                 if (z2 <= 0)
                     continue;
 
-                // Check reprojection error in first keyframe
+                //Check reprojection error in first keyframe
                 const float& sigmaSquare1 = mpCurrentKeyFrame->mvLevelSigma2[kp1.octave];
-                //const float x1 = Rcw1.row(0).dot(x3Dt) + tcw1.at<float>(0);
-                //const float y1 = Rcw1.row(1).dot(x3Dt) + tcw1.at<float>(1);
-                const float x1 = (Rcw1.row(0) * x3Dt).sum() + tcw1(0);
-                const float y1 = (Rcw1.row(1) * x3Dt).sum() + tcw1(1);
+                const float x1 = Rcw1.row(0).dot(x3Dt) + tcw1.at<float>(0);
+                const float y1 = Rcw1.row(1).dot(x3Dt) + tcw1.at<float>(1);
                 const float invz1 = 1.0 / z1;
 
                 if (!bStereo1)
@@ -468,12 +407,10 @@ namespace ORB_SLAM2
                         continue;
                 }
 
-                // Check reprojection error in second keyframe
+                //Check reprojection error in second keyframe
                 const float sigmaSquare2 = pKF2->mvLevelSigma2[kp2.octave];
-                //const float x2 = Rcw2.row(0).dot(x3Dt) + tcw2.at<float>(0);
-                //const float y2 = Rcw2.row(1).dot(x3Dt) + tcw2.at<float>(1);
-                const float x2 = (Rcw2.row(0) * x3Dt).sum() + tcw2(0);
-                const float y2 = (Rcw2.row(1) * x3Dt).sum() + tcw2(1);
+                const float x2 = Rcw2.row(0).dot(x3Dt) + tcw2.at<float>(0);
+                const float y2 = Rcw2.row(1).dot(x3Dt) + tcw2.at<float>(1);
                 const float invz2 = 1.0 / z2;
                 if (!bStereo2)
                 {
@@ -496,24 +433,14 @@ namespace ORB_SLAM2
                         continue;
                 }
 
-                // Check scale consistency
-                //cv::Mat normal1 = x3D - Ow1;
-                //float dist1 = cv::norm(normal1);
-                Eigen::Vector3d normal1 = x3D - Ow1;		// rows * cols = 3 * 1
-                float dist1 = normal1.norm();
+                //Check scale consistency
+                cv::Mat normal1 = x3D - Ow1;
+                float dist1 = cv::norm(normal1);
 
-                if (dist1 == 0)
-                    continue;
+                cv::Mat normal2 = x3D - Ow2;
+                float dist2 = cv::norm(normal2);
 
-                //cv::Mat normal2 = x3D - Ow2;
-                //float dist2 = cv::norm(normal2);
-                Eigen::Vector3d normal2 = x3D - Ow2;		// rows * cols = 3 * 1
-                float dist2 = normal2.norm();
-
-                //if (dist1 == 0 || dist2 == 0)
-                //    continue;
-
-                if (dist2 == 0)
+                if (dist1 == 0 || dist2 == 0)
                     continue;
 
                 const float ratioDist = dist2 / dist1;
@@ -521,24 +448,11 @@ namespace ORB_SLAM2
 
                 /*if(fabs(ratioDist-ratioOctave)>ratioFactor)
                     continue;*/
-                if (ratioDist * ratioFactor < ratioOctave || ratioDist > ratioOctave * ratioFactor)
+                if (ratioDist * ratioFactor<ratioOctave || ratioDist>ratioOctave * ratioFactor)
                     continue;
 
                 // Triangulation is succesfull
-                //MapPoint* pMP = new MapPoint(Converter::toCvMat(x3D), mpCurrentKeyFrame, mpMap);
-                std::cout << "\nx3D dimensions: " << x3D.rows() << "x" << x3D.cols() << std::endl;
-                std::cout << x3D(0) << " " << x3D(1) << " " << x3D(2) << std::endl;
-                cv::Mat cvVector = ORB_SLAM2::Converter::toCvMat(x3D);
-                std::cout << "\ncvVector:\n";
-                for (int i = 0; i < cvVector.rows; i++)
-                {
-                    for (int j = 0; j < cvVector.cols; j++)
-                    {
-                        std::cout << cvVector.at<int>(i,j);
-                    }
-                    std::cout << "\n";;
-                }
-                MapPoint* pMP = new MapPoint(cvVector, mpCurrentKeyFrame, mpMap);
+                MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpMap);
 
                 pMP->AddObservation(mpCurrentKeyFrame, idx1);
                 pMP->AddObservation(pKF2, idx2);
