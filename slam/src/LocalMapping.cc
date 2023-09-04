@@ -239,9 +239,28 @@ namespace ORB_SLAM2
         cv::Mat Rwc1 = Rcw1.t();
         cv::Mat tcw1 = mpCurrentKeyFrame->GetTranslation();
         cv::Mat Tcw1(3, 4, CV_32F);
+
+        Eigen::Matrix3f Rcw1TEST = Converter::toMatrix3f(mpCurrentKeyFrame->GetRotation());
+        Eigen::Matrix3f Rwc1TEST = Rcw1TEST.transpose();
+        Eigen::Vector3f tcw1TEST = Converter::toVector3f(mpCurrentKeyFrame->GetTranslation());
+        Eigen::Matrix<float, 3, 4> Tcw1TEST;
+        Tcw1TEST.block(0, 0, 3, 3) = Rcw1TEST;
+        Tcw1TEST.col(3) = tcw1TEST;
+        //std::cout << "\nRcw1TEST:\n" << Rcw1TEST << std::endl;
+        //std::cout << "\ntcw1TEST:\n" << tcw1TEST << std::endl;
+        //std::cout << "\nTcw1TEST:\n" << Tcw1TEST << std::endl;
+
         Rcw1.copyTo(Tcw1.colRange(0, 3));
         tcw1.copyTo(Tcw1.col(3));
+        //std::cout << "\nRcw1:\n" << Rcw1 << std::endl;
+        //std::cout << "\ntcw1:\n" << tcw1 << std::endl;
+        //std::cout << "\nTcw1:\n" << Tcw1 << std::endl;
+
+
         cv::Mat Ow1 = mpCurrentKeyFrame->GetCameraCenter();
+        Eigen::Vector3f Ow1TEST = Converter::toVector3f(mpCurrentKeyFrame->GetCameraCenter());
+        //std::cout << "\nOw1:\n" << Ow1 << std::endl;
+        //std::cout << "\nOw1TEST:\n" << Ow1TEST << std::endl;
 
         const float& fx1 = mpCurrentKeyFrame->fx;
         const float& fy1 = mpCurrentKeyFrame->fy;
@@ -266,6 +285,16 @@ namespace ORB_SLAM2
             cv::Mat Ow2 = pKF2->GetCameraCenter();
             cv::Mat vBaseline = Ow2 - Ow1;
             const float baseline = cv::norm(vBaseline);
+            //std::cout << "\nOw2:\n" << Ow2 << std::endl;
+            //std::cout << "\nvBaseline:\n" << vBaseline << std::endl;
+            //std::cout << "\nbaseline:\n" << baseline << std::endl;
+
+            Eigen::Vector3f Ow2TEST = Converter::toVector3f(pKF2->GetCameraCenter());
+            Eigen::VectorXf vBaselineTEST = Ow2TEST - Ow1TEST;
+            const float baselineTEST = vBaselineTEST.norm();
+            //std::cout << "\nOw2TEST:\n" << Ow2TEST << std::endl;
+            //std::cout << "\nvBaselineTEST:\n" << vBaselineTEST << std::endl;
+            //std::cout << "\nbaselineTEST:\n" << baselineTEST << std::endl;
 
             if (!mbMonocular)
             {
@@ -294,6 +323,20 @@ namespace ORB_SLAM2
             cv::Mat Tcw2(3, 4, CV_32F);
             Rcw2.copyTo(Tcw2.colRange(0, 3));
             tcw2.copyTo(Tcw2.col(3));
+            //std::cout << "\nRcw2:\n" << Rcw2 << std::endl;
+            //std::cout << "\ntcw2:\n" << tcw2 << std::endl;
+            //std::cout << "\nTcw2:\n" << Tcw2 << std::endl;
+
+
+            Eigen::Matrix3f Rcw2TEST = Converter::toMatrix3f(pKF2->GetRotation());
+            Eigen::Matrix3f Rwc2TEST = Rcw2TEST.transpose();
+            Eigen::Vector3f tcw2TEST = Converter::toVector3f(pKF2->GetTranslation());
+            Eigen::Matrix<float, 3, 4> Tcw2TEST;
+            Tcw2TEST.block(0, 0, 3, 3) = Rcw2TEST;
+            Tcw2TEST.col(3) = tcw2TEST;
+            //std::cout << "\nRcw2TEST:\n" << Rcw2TEST << std::endl;
+            //std::cout << "\ntcw2TEST:\n" << tcw2TEST << std::endl;
+            //std::cout << "\nTcw2TEST:\n" << Tcw2TEST << std::endl;
 
             const float& fx2 = pKF2->fx;
             const float& fy2 = pKF2->fy;
@@ -320,10 +363,25 @@ namespace ORB_SLAM2
                 // Check parallax between rays
                 cv::Mat xn1 = (cv::Mat_<float>(3, 1) << (kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);
                 cv::Mat xn2 = (cv::Mat_<float>(3, 1) << (kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);
-
                 cv::Mat ray1 = Rwc1 * xn1;
                 cv::Mat ray2 = Rwc2 * xn2;
                 const float cosParallaxRays = ray1.dot(ray2) / (cv::norm(ray1) * cv::norm(ray2));
+                //std::cout << "\nxn1:\n" << xn1 << std::endl;
+                //std::cout << "\nxn2:\n" << xn2 << std::endl;
+                //std::cout << "\nray1:\n" << ray1 << std::endl;
+                //std::cout << "\nray2:\n" << ray2 << std::endl;
+                //std::cout << "\ncosParallaxRays:\n" << cosParallaxRays << std::endl;
+
+                Eigen::Vector3f xn1TEST((kp1.pt.x - cx1) * invfx1, (kp1.pt.y - cy1) * invfy1, 1.0);
+                Eigen::Vector3f xn2TEST((kp2.pt.x - cx2) * invfx2, (kp2.pt.y - cy2) * invfy2, 1.0);
+                Eigen::Vector3f ray1TEST = Rwc1TEST * xn1TEST;
+                Eigen::Vector3f ray2TEST = Rwc2TEST * xn2TEST;
+                const float cosParallaxRaysTEST = ray1TEST.dot(ray2TEST) / (ray1TEST.norm() * ray2TEST.norm());
+                //std::cout << "\nxn1TEST:\n" << xn1TEST << std::endl;
+                //std::cout << "\nxn2TEST:\n" << xn2TEST << std::endl;
+                //std::cout << "\nray1TEST:\n" << ray1TEST << std::endl;
+                //std::cout << "\nray2TEST:\n" << ray2TEST << std::endl;
+                //std::cout << "\ncosParallaxRaysTEST:\n" << cosParallaxRaysTEST << std::endl;
 
                 float cosParallaxStereo = cosParallaxRays + 1;
                 float cosParallaxStereo1 = cosParallaxStereo;
@@ -337,6 +395,7 @@ namespace ORB_SLAM2
                 cosParallaxStereo = min(cosParallaxStereo1, cosParallaxStereo2);
 
                 cv::Mat x3D;
+                Eigen::VectorXf x3DTEST;
                 if (cosParallaxRays < cosParallaxStereo && cosParallaxRays>0 && (bStereo1 || bStereo2 || cosParallaxRays < 0.9998))
                 {
                     // Linear Triangulation Method
@@ -345,26 +404,72 @@ namespace ORB_SLAM2
                     A.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
                     A.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
                     A.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
+                    //std::cout << "\nA:\n" << A << std::endl;
+
+
+                    Eigen::Matrix<float, 4, 4> ATEST;
+                    ATEST.row(0) = xn1TEST(0) * Tcw1TEST.row(2) - Tcw1TEST.row(0);
+                    ATEST.row(1) = xn1TEST(1) * Tcw1TEST.row(2) - Tcw1TEST.row(1);
+                    ATEST.row(2) = xn2TEST(0) * Tcw2TEST.row(2) - Tcw2TEST.row(0);
+                    ATEST.row(3) = xn2TEST(1) * Tcw2TEST.row(2) - Tcw2TEST.row(1);
+                    //std::cout << "\nATEST:\n" << ATEST << std::endl;
 
                     cv::Mat w, u, vt;
                     cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
-
                     x3D = vt.row(3).t();
 
+                    Eigen::Vector4f wTEST;
+                    Eigen::Matrix4f uTEST, vtTEST;
+                    Eigen::JacobiSVD<Eigen::Matrix4f> svd(ATEST, Eigen::ComputeFullU | Eigen::ComputeFullV);
+                    wTEST = svd.singularValues();
+                    uTEST = svd.matrixU();
+                    uTEST.col(3) *= -1;
+                    vtTEST = svd.matrixV().transpose();
+                    vtTEST.row(3) *= -1;
+                    x3DTEST = vtTEST.col(3).head<4>();
+                    std::cout << "\nA:\n" << A << std::endl;
+                    std::cout << "\nATEST:\n" << ATEST << std::endl;
+
+                    std::cout << "\nw:\n" << w << std::endl;
+                    std::cout << "\nwTEST:\n" << wTEST << std::endl;
+
+                    std::cout << "\nu:\n" << u << std::endl;
+                    std::cout << "\nuTEST:\n" << uTEST << std::endl;
+
+                    std::cout << "\nvt:\n" << vt << std::endl;
+                    std::cout << "\nvtTEST:\n" << vtTEST << std::endl;
+
+                    std::cout << "\nx3D:\n" << x3D << std::endl;
+                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
+
+                    // !!!!! differences in the signs of some elements in u, vt, uTEST, and vtTEST
+
                     if (x3D.at<float>(3) == 0)
+                        continue;
+                    if (x3DTEST(3) == 0)
                         continue;
 
                     // Euclidean coordinates
                     x3D = x3D.rowRange(0, 3) / x3D.at<float>(3);
+                    x3DTEST = x3DTEST.segment(0, 3) / x3DTEST(3);
+                    std::cout << "\nEuclidean coordinates:\n" << std::endl;
+                    std::cout << "\nx3D:\n" << x3D << std::endl;
+                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
 
                 }
                 else if (bStereo1 && cosParallaxStereo1 < cosParallaxStereo2)
                 {
                     x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
+                    x3DTEST = Converter::toVector4f(mpCurrentKeyFrame->UnprojectStereo(idx1));
+                    std::cout << "\nx3D:\n" << x3D << std::endl;
+                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
                 }
                 else if (bStereo2 && cosParallaxStereo2 < cosParallaxStereo1)
                 {
                     x3D = pKF2->UnprojectStereo(idx2);
+                    x3DTEST = Converter::toVector4f(pKF2->UnprojectStereo(idx2));
+                    std::cout << "\nx3D:\n" << x3D << std::endl;
+                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
                 }
                 else
                     continue; //No stereo and very low parallax

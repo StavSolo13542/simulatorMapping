@@ -49,6 +49,10 @@ namespace ORB_SLAM2
         static Eigen::Matrix<double, 3, 1> toVector3d(const cv::Point3f& cvPoint);
         static Eigen::Matrix<double, 3, 3> toMatrix3d(const cv::Mat& cvMat3);
 
+        static Eigen::Matrix<float, 3, 1> Converter::toVector3f(const cv::Mat& cvVector);
+        static Eigen::Matrix<float, 3, 3> Converter::toMatrix3f(const cv::Mat& cvMat3);
+        static Eigen::Vector4f Converter::toVector4f(const cv::Mat& cvVector);
+
         static std::vector<float> toQuaternion(const cv::Mat& M);
     };
 

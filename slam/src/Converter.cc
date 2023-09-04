@@ -134,6 +134,38 @@ namespace ORB_SLAM2
         return M;
     }
 
+
+    // float versions
+    Eigen::Matrix<float, 3, 1> Converter::toVector3f(const cv::Mat& cvVector)
+    {
+        Eigen::Matrix<float, 3, 1> v;
+        v << cvVector.at<float>(0), cvVector.at<float>(1), cvVector.at<float>(2);
+
+        return v;
+    }
+
+    Eigen::Matrix<float, 3, 3> Converter::toMatrix3f(const cv::Mat& cvMat3)
+    {
+        Eigen::Matrix<float, 3, 3> M;
+
+        M << cvMat3.at<float>(0, 0), cvMat3.at<float>(0, 1), cvMat3.at<float>(0, 2),
+            cvMat3.at<float>(1, 0), cvMat3.at<float>(1, 1), cvMat3.at<float>(1, 2),
+            cvMat3.at<float>(2, 0), cvMat3.at<float>(2, 1), cvMat3.at<float>(2, 2);
+
+        return M;
+    }
+
+    Eigen::Vector4f Converter::toVector4f(const cv::Mat& cvVector) {
+        assert(cvVector.rows == 4 && cvVector.cols == 1 && cvVector.type() == CV_64F);
+
+        Eigen::Vector4f v;
+        v << cvVector.at<float>(0), cvVector.at<float>(1),
+            cvVector.at<float>(2), cvVector.at<float>(3);
+
+        return v;
+    }
+
+
     std::vector<float> Converter::toQuaternion(const cv::Mat& M)
     {
         Eigen::Matrix<double, 3, 3> eigMat = toMatrix3d(M);
