@@ -394,102 +394,108 @@ namespace ORB_SLAM2
 
                 cosParallaxStereo = min(cosParallaxStereo1, cosParallaxStereo2);
 
-                cv::Mat x3D;
-                Eigen::VectorXf x3DTEST;
+                cv::Mat x3D_cv;
+                Eigen::VectorXf x3D;
                 if (cosParallaxRays < cosParallaxStereo && cosParallaxRays>0 && (bStereo1 || bStereo2 || cosParallaxRays < 0.9998))
                 {
                     // Linear Triangulation Method
-                    cv::Mat A(4, 4, CV_32F);
-                    A.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
-                    A.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
-                    A.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
-                    A.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
+                    //cv::Mat A_cv(4, 4, CV_32F);
+                    //ACV.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
+                    //ACV.row(1) = xn1.at<float>(1) * Tcw1.row(2) - Tcw1.row(1);
+                    //ACV.row(2) = xn2.at<float>(0) * Tcw2.row(2) - Tcw2.row(0);
+                    //ACV.row(3) = xn2.at<float>(1) * Tcw2.row(2) - Tcw2.row(1);
                     //std::cout << "\nA:\n" << A << std::endl;
 
 
-                    Eigen::Matrix<float, 4, 4> ATEST;
-                    ATEST.row(0) = xn1TEST(0) * Tcw1TEST.row(2) - Tcw1TEST.row(0);
-                    ATEST.row(1) = xn1TEST(1) * Tcw1TEST.row(2) - Tcw1TEST.row(1);
-                    ATEST.row(2) = xn2TEST(0) * Tcw2TEST.row(2) - Tcw2TEST.row(0);
-                    ATEST.row(3) = xn2TEST(1) * Tcw2TEST.row(2) - Tcw2TEST.row(1);
-                    //std::cout << "\nATEST:\n" << ATEST << std::endl;
+                    Eigen::Matrix<float, 4, 4> A;
+                    A.row(0) = xn1TEST(0) * Tcw1TEST.row(2) - Tcw1TEST.row(0);
+                    A.row(1) = xn1TEST(1) * Tcw1TEST.row(2) - Tcw1TEST.row(1);
+                    A.row(2) = xn2TEST(0) * Tcw2TEST.row(2) - Tcw2TEST.row(0);
+                    A.row(3) = xn2TEST(1) * Tcw2TEST.row(2) - Tcw2TEST.row(1);
+                    //std::cout << "\nA:\n" << A << std::endl;
 
+                    cv::Mat A_cv = Converter::toCvMatf(A);
+                    //std::cout << "\nA_cv:\n" << A_cv << std::endl;
                     cv::Mat w, u, vt;
-                    cv::SVD::compute(A, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
-                    x3D = vt.row(3).t();
+                    cv::SVD::compute(A_cv, w, u, vt, cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
+                    x3D_cv = vt.row(3).t();
 
-                    Eigen::Vector4f wTEST;
-                    Eigen::Matrix4f uTEST, vtTEST;
-                    Eigen::JacobiSVD<Eigen::Matrix4f> svd(ATEST, Eigen::ComputeFullU | Eigen::ComputeFullV);
-                    wTEST = svd.singularValues();
-                    uTEST = svd.matrixU();
-                    uTEST.col(3) *= -1;
-                    vtTEST = svd.matrixV().transpose();
-                    vtTEST.row(3) *= -1;
-                    x3DTEST = vtTEST.col(3).head<4>();
-                    std::cout << "\nA:\n" << A << std::endl;
-                    std::cout << "\nATEST:\n" << ATEST << std::endl;
+                    //// printing:
+                    //std::cout << "\nA_cv:\n" << A_cv << std::endl;
+                    //std::cout << "\nA:\n" << A << std::endl;
 
-                    std::cout << "\nw:\n" << w << std::endl;
-                    std::cout << "\nwTEST:\n" << wTEST << std::endl;
+                    //std::cout << "\nw:\n" << w << std::endl;
 
-                    std::cout << "\nu:\n" << u << std::endl;
-                    std::cout << "\nuTEST:\n" << uTEST << std::endl;
+                    //std::cout << "\nu:\n" << u << std::endl;
 
-                    std::cout << "\nvt:\n" << vt << std::endl;
-                    std::cout << "\nvtTEST:\n" << vtTEST << std::endl;
+                    //std::cout << "\nvt:\n" << vt << std::endl;
 
-                    std::cout << "\nx3D:\n" << x3D << std::endl;
-                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
+                    //std::cout << "\nx3D_cv:\n" << x3D_cv << std::endl;
 
-                    // !!!!! differences in the signs of some elements in u, vt, uTEST, and vtTEST
-
-                    if (x3D.at<float>(3) == 0)
-                        continue;
-                    if (x3DTEST(3) == 0)
+                    if (x3D_cv.at<float>(3) == 0)
                         continue;
 
                     // Euclidean coordinates
-                    x3D = x3D.rowRange(0, 3) / x3D.at<float>(3);
-                    x3DTEST = x3DTEST.segment(0, 3) / x3DTEST(3);
-                    std::cout << "\nEuclidean coordinates:\n" << std::endl;
-                    std::cout << "\nx3D:\n" << x3D << std::endl;
-                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
+                    x3D_cv = x3D_cv.rowRange(0, 3) / x3D_cv.at<float>(3);
+                    x3D = Converter::toVector3f(x3D_cv);
+                    //std::cout << "\nEuclidean coordinates:\n" << std::endl;
+                    //std::cout << "\nx3D_cv:\n" << x3D_cv << std::endl;
+                    //std::cout << "\nx3D:\n" << x3D << std::endl;
 
                 }
                 else if (bStereo1 && cosParallaxStereo1 < cosParallaxStereo2)
                 {
-                    x3D = mpCurrentKeyFrame->UnprojectStereo(idx1);
-                    x3DTEST = Converter::toVector4f(mpCurrentKeyFrame->UnprojectStereo(idx1));
+                    x3D_cv = mpCurrentKeyFrame->UnprojectStereo(idx1);
+                    x3D = Converter::toVector4f(mpCurrentKeyFrame->UnprojectStereo(idx1));
+                    std::cout << "\nx3D_cv:\n" << x3D_cv << std::endl;
                     std::cout << "\nx3D:\n" << x3D << std::endl;
-                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
                 }
                 else if (bStereo2 && cosParallaxStereo2 < cosParallaxStereo1)
                 {
-                    x3D = pKF2->UnprojectStereo(idx2);
-                    x3DTEST = Converter::toVector4f(pKF2->UnprojectStereo(idx2));
+                    x3D_cv = pKF2->UnprojectStereo(idx2);
+                    x3D = Converter::toVector4f(pKF2->UnprojectStereo(idx2));
+                    std::cout << "\nx3D_cv:\n" << x3D_cv << std::endl;
                     std::cout << "\nx3D:\n" << x3D << std::endl;
-                    std::cout << "\nx3DTEST:\n" << x3DTEST << std::endl;
                 }
                 else
                     continue; //No stereo and very low parallax
 
-                cv::Mat x3Dt = x3D.t();
+                cv::Mat x3Dt_cv = x3D_cv.t();
+                Eigen::VectorXf x3Dt = x3D.transpose();
+                //std::cout << "\nx3Dt_cv:\n" << x3Dt_cv << std::endl;
+                //std::cout << "\nx3Dt:\n" << x3Dt << std::endl;
 
                 //Check triangulation in front of cameras
-                float z1 = Rcw1.row(2).dot(x3Dt) + tcw1.at<float>(2);
+                float z1 = Rcw1.row(2).dot(x3Dt_cv) + tcw1.at<float>(2);
+                Eigen::RowVector3f camera_optical_axis = Rcw1TEST.row(2);
+                float z1TEST = (camera_optical_axis * (x3Dt)).sum() + tcw1TEST(2);
+                //std::cout << "\nz1:\n" << z1 << std::endl;
+                //std::cout << "\nz1TEST:\n" << z1TEST << std::endl;
                 if (z1 <= 0)
                     continue;
 
-                float z2 = Rcw2.row(2).dot(x3Dt) + tcw2.at<float>(2);
+                float z2 = Rcw2.row(2).dot(x3Dt_cv) + tcw2.at<float>(2);
+                float z2TEST = (Rcw2TEST.row(2) * x3Dt).sum() + tcw2TEST(2);
+                //std::cout << "\nz2:\n" << z2 << std::endl;
+                //std::cout << "\nz2TEST:\n" << z2TEST << std::endl;
                 if (z2 <= 0)
                     continue;
 
                 //Check reprojection error in first keyframe
                 const float& sigmaSquare1 = mpCurrentKeyFrame->mvLevelSigma2[kp1.octave];
-                const float x1 = Rcw1.row(0).dot(x3Dt) + tcw1.at<float>(0);
-                const float y1 = Rcw1.row(1).dot(x3Dt) + tcw1.at<float>(1);
+                const float x1 = Rcw1.row(0).dot(x3Dt_cv) + tcw1.at<float>(0);
+                const float y1 = Rcw1.row(1).dot(x3Dt_cv) + tcw1.at<float>(1);
+                const float x1TEST = (Rcw1TEST.row(0) * x3Dt).sum() + tcw1TEST(0);
+                const float y1TEST = (Rcw1TEST.row(1) * x3Dt).sum() + tcw1TEST(1);
                 const float invz1 = 1.0 / z1;
+                const float invz1TEST = 1.0 / z1TEST;
+                //std::cout << "\nx1:\n" << x1 << std::endl;
+                //std::cout << "\nx1TEST:\n" << x1TEST << std::endl;
+                //std::cout << "\ny1:\n" << y1 << std::endl;
+                //std::cout << "\ny1TEST:\n" << y1TEST << std::endl;
+                //std::cout << "\ninvz1:\n" << invz1 << std::endl;
+                //std::cout << "\ninvz1TEST:\n" << invz1TEST << std::endl;
+
 
                 if (!bStereo1)
                 {
@@ -514,8 +520,14 @@ namespace ORB_SLAM2
 
                 //Check reprojection error in second keyframe
                 const float sigmaSquare2 = pKF2->mvLevelSigma2[kp2.octave];
-                const float x2 = Rcw2.row(0).dot(x3Dt) + tcw2.at<float>(0);
-                const float y2 = Rcw2.row(1).dot(x3Dt) + tcw2.at<float>(1);
+                const float x2 = Rcw2.row(0).dot(x3Dt_cv) + tcw2.at<float>(0);
+                const float y2 = Rcw2.row(1).dot(x3Dt_cv) + tcw2.at<float>(1);
+                const float x2TEST = (Rcw2TEST.row(0) * x3Dt).sum() + tcw2TEST(0);
+                const float y2TEST = (Rcw2TEST.row(1) * x3Dt).sum() + tcw2TEST(1);
+                //std::cout << "\nx2:\n" << x2 << std::endl;
+                //std::cout << "\nx2TEST:\n" << x2TEST << std::endl;
+                //std::cout << "\ny2:\n" << y2 << std::endl;
+                //std::cout << "\ny2TEST:\n" << y2TEST << std::endl;
                 const float invz2 = 1.0 / z2;
                 if (!bStereo2)
                 {
@@ -539,14 +551,32 @@ namespace ORB_SLAM2
                 }
 
                 //Check scale consistency
-                cv::Mat normal1 = x3D - Ow1;
+                cv::Mat normal1 = x3D_cv - Ow1;
+                Eigen::Vector3f normal1TEST = x3D - Ow1TEST;
                 float dist1 = cv::norm(normal1);
+                float dist1TEST = normal1TEST.norm();
+                //std::cout << "\nnormal1:\n" << normal1 << std::endl;
+                //std::cout << "\nnormal1TEST:\n" << normal1TEST << std::endl;
+                //std::cout << "\ndist1:\n" << dist1 << std::endl;
+                //std::cout << "\ndist1TEST:\n" << dist1TEST << std::endl;
 
-                cv::Mat normal2 = x3D - Ow2;
-                float dist2 = cv::norm(normal2);
-
-                if (dist1 == 0 || dist2 == 0)
+                if (dist1 == 0)
                     continue;
+
+                cv::Mat normal2 = x3D_cv - Ow2;
+                float dist2 = cv::norm(normal2);
+                Eigen::Vector3f normal2TEST = x3D - Ow2TEST;
+                float dist2TEST = normal2TEST.norm();
+                //std::cout << "\nnormal2:\n" << normal2 << std::endl;
+                //std::cout << "\nnormal2TEST:\n" << normal2TEST << std::endl;
+                //std::cout << "\ndist2:\n" << dist2 << std::endl;
+                //std::cout << "\ndist2TEST:\n" << dist2TEST << std::endl;
+
+                if (dist2 == 0)
+                    continue;
+
+                //if (dist1 == 0 || dist2 == 0)
+                //    continue;
 
                 const float ratioDist = dist2 / dist1;
                 const float ratioOctave = mpCurrentKeyFrame->mvScaleFactors[kp1.octave] / pKF2->mvScaleFactors[kp2.octave];
@@ -557,7 +587,7 @@ namespace ORB_SLAM2
                     continue;
 
                 // Triangulation is succesfull
-                MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpMap);
+                MapPoint* pMP = new MapPoint(x3D_cv, mpCurrentKeyFrame, mpMap);
 
                 pMP->AddObservation(mpCurrentKeyFrame, idx1);
                 pMP->AddObservation(pKF2, idx2);

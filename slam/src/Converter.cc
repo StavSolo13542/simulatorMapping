@@ -156,13 +156,22 @@ namespace ORB_SLAM2
     }
 
     Eigen::Vector4f Converter::toVector4f(const cv::Mat& cvVector) {
-        assert(cvVector.rows == 4 && cvVector.cols == 1 && cvVector.type() == CV_64F);
+        assert(cvVector.rows == 4 && cvVector.cols == 1 && cvVector.type() == CV_32F);
 
         Eigen::Vector4f v;
         v << cvVector.at<float>(0), cvVector.at<float>(1),
             cvVector.at<float>(2), cvVector.at<float>(3);
 
         return v;
+    }
+
+    cv::Mat Converter::toCvMatf(const Eigen::Matrix<float, 4, 4>& m) {
+        cv::Mat cvMat(4, 4, CV_32F);
+        for (int i = 0; i < 4; i++)
+            for (int j = 0; j < 4; j++)
+                cvMat.at<float>(i, j) = m(i, j);
+
+        return cvMat.clone();
     }
 
 
