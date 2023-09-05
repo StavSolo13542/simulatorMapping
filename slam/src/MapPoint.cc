@@ -92,7 +92,7 @@ namespace ORB_SLAM2
         ar &nItems;
         // cout << "{INFO}mvpMapPoints nItems -" << nItems << endl;
 
-        for (std::map<KeyFrame *, size_t>::const_iterator it = mObservations.begin(); it != mObservations.end(); ++it)
+        for (auto it = mObservations.begin(); it != mObservations.end(); ++it)
         {
             if (it->first == NULL)
             {
@@ -238,12 +238,12 @@ namespace ORB_SLAM2
         kfRef_id = mref_KfId_pair.first;
         bool is_ref_valid = mref_KfId_pair.second;
 
-        for (map<long unsigned int, size_t>::iterator it = mObservations_nId.begin(); it != mObservations_nId.end(); j++, ++it)
+        for (auto it = mObservations_nId.begin(); it != mObservations_nId.end(); j++, ++it)
         {
             id = it->first;
             size = it->second;
             {
-                for (std::vector<KeyFrame *>::iterator mit = spKeyFrames.begin(); mit != spKeyFrames.end(); mit++)
+                for (auto mit = spKeyFrames.begin(); mit != spKeyFrames.end(); mit++)
                 {
                     KeyFrame *pKf = *mit;
                     // cout << "[" << pKf->mnId << "]";
@@ -258,7 +258,7 @@ namespace ORB_SLAM2
             }
         }
 
-        for (std::vector<KeyFrame *>::iterator mit = spKeyFrames.begin(); mit != spKeyFrames.end(); mit++)
+        for (auto mit = spKeyFrames.begin(); mit != spKeyFrames.end(); mit++)
         {
             KeyFrame *pKf = *mit;
             if (is_ref_valid && kfRef_id == pKf->mnId)
@@ -370,7 +370,7 @@ namespace ORB_SLAM2
             SetBadFlag();
     }
 
-    map<KeyFrame *, size_t> MapPoint::GetObservations()
+    unordered_map<KeyFrame *, size_t> MapPoint::GetObservations()
     {
         unique_lock<mutex> lock(mMutexFeatures);
         return mObservations;
@@ -384,7 +384,7 @@ namespace ORB_SLAM2
 
     void MapPoint::SetBadFlag()
     {
-        map<KeyFrame *, size_t> obs;
+        unordered_map<KeyFrame *, size_t> obs;
         {
             unique_lock<mutex> lock1(mMutexFeatures);
             unique_lock<mutex> lock2(mMutexPos);
@@ -392,7 +392,7 @@ namespace ORB_SLAM2
             obs = mObservations;
             mObservations.clear();
         }
-        for (map<KeyFrame *, size_t>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
+        for (auto mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
         {
             KeyFrame *pKF = mit->first;
             pKF->EraseMapPointMatch(mit->second);
@@ -414,7 +414,7 @@ namespace ORB_SLAM2
             return;
 
         int nvisible, nfound;
-        map<KeyFrame *, size_t> obs;
+        unordered_map<KeyFrame *, size_t> obs;
         {
             unique_lock<mutex> lock1(mMutexFeatures);
             unique_lock<mutex> lock2(mMutexPos);
@@ -426,7 +426,7 @@ namespace ORB_SLAM2
             mpReplaced = pMP;
         }
 
-        for (map<KeyFrame *, size_t>::iterator mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
+        for (auto mit = obs.begin(), mend = obs.end(); mit != mend; mit++)
         {
             // Replace measurement in keyframe
             KeyFrame *pKF = mit->first;
@@ -478,7 +478,7 @@ namespace ORB_SLAM2
         // Retrieve all observed descriptors
         vector<cv::Mat> vDescriptors;
 
-        map<KeyFrame *, size_t> observations;
+        unordered_map<KeyFrame *, size_t> observations;
 
         {
             unique_lock<mutex> lock1(mMutexFeatures);
@@ -492,7 +492,7 @@ namespace ORB_SLAM2
 
         vDescriptors.reserve(observations.size());
 
-        for (map<KeyFrame *, size_t>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+        for (auto mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
             KeyFrame *pKF = mit->first;
 
@@ -566,7 +566,7 @@ namespace ORB_SLAM2
 
     void MapPoint::UpdateNormalAndDepth()
     {
-        map<KeyFrame *, size_t> observations;
+        unordered_map<KeyFrame *, size_t> observations;
         KeyFrame *pRefKF;
         cv::Mat Pos;
         {
@@ -584,7 +584,7 @@ namespace ORB_SLAM2
 
         cv::Mat normal = cv::Mat::zeros(3, 1, CV_32F);
         int n = 0;
-        for (map<KeyFrame *, size_t>::iterator mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
+        for (auto mit = observations.begin(), mend = observations.end(); mit != mend; mit++)
         {
             KeyFrame *pKF = mit->first;
             cv::Mat Owi = pKF->GetCameraCenter();

@@ -251,7 +251,7 @@ void Simulator::saveMap(std::string prefix)
             pointData << worldPos.at<double>(0) << "," << worldPos.at<double>(1) << "," << worldPos.at<double>(2);
             pointData << "," << p->GetMinDistanceInvariance() << "," << p->GetMaxDistanceInvariance() << ","
                       << Pn.at<double>(0) << "," << Pn.at<double>(1) << "," << Pn.at<double>(2);
-            std::map<ORB_SLAM2::KeyFrame *, size_t> observations = p->GetObservations();
+            std::unordered_map<ORB_SLAM2::KeyFrame *, size_t> observations = p->GetObservations();
             for (auto &obs : observations)
             {
                 ORB_SLAM2::KeyFrame *currentFrame = obs.first;

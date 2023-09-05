@@ -16,7 +16,7 @@
         {
           "name": "MSVC_USE_STATIC_CRT",
           "value": "False",
-          "type": "BOOL"
+          "type": "STRING"
         }
       ]
     },
@@ -29,7 +29,8 @@
       "cmakeCommandArgs": "",
       "buildCommandArgs": "",
       "ctestCommandArgs": "",
-      "inheritEnvironments": [ "msvc_x64" ]
+      "inheritEnvironments": [ "msvc_x64" ],
+      "variables": []
     }
   ]
 }

@@ -985,7 +985,7 @@ namespace ORB_SLAM2
         cv::Mat Ow = -Rcw.t() * tcw;
 
         // Set of MapPoints already found in the KeyFrame
-        const set<MapPoint *> spAlreadyFound = pKF->GetMapPoints();
+        const unordered_map<MapPoint *,int> spAlreadyFound = pKF->GetMapPoints();
 
         int nFused = 0;
 

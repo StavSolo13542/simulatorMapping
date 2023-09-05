@@ -1295,7 +1295,7 @@ namespace ORB_SLAM2
     void Tracking::UpdateLocalKeyFrames()
     {
         // Each map point vote for the keyframes in which it has been observed
-        map<KeyFrame *, int> keyframeCounter;
+        unordered_map<KeyFrame *, int> keyframeCounter;
         for (int i = 0; i < mCurrentFrame.N; i++)
         {
             if (mCurrentFrame.mvpMapPoints[i])
@@ -1303,8 +1303,8 @@ namespace ORB_SLAM2
                 MapPoint *pMP = mCurrentFrame.mvpMapPoints[i];
                 if (!pMP->isBad())
                 {
-                    const map<KeyFrame *, size_t> observations = pMP->GetObservations();
-                    for (map<KeyFrame *, size_t>::const_iterator it = observations.begin(), itend = observations.end();
+                    const unordered_map<KeyFrame *, size_t> observations = pMP->GetObservations();
+                    for (auto it = observations.begin(), itend = observations.end();
                          it != itend; it++)
                         keyframeCounter[it->first]++;
                 }
@@ -1325,7 +1325,7 @@ namespace ORB_SLAM2
         mvpLocalKeyFrames.reserve(3 * keyframeCounter.size());
 
         // All keyframes that observe a map point are included in the local map. Also check which keyframe shares most points
-        for (map<KeyFrame *, int>::const_iterator it = keyframeCounter.begin(), itEnd = keyframeCounter.end();
+        for (auto it = keyframeCounter.begin(), itEnd = keyframeCounter.end();
              it != itEnd; it++)
         {
             KeyFrame *pKF = it->first;
@@ -1369,10 +1369,10 @@ namespace ORB_SLAM2
                 }
             }
 
-            const set<KeyFrame *> spChilds = pKF->GetChilds();
-            for (set<KeyFrame *>::const_iterator sit = spChilds.begin(), send = spChilds.end(); sit != send; sit++)
+            const unordered_map<KeyFrame *,int> spChilds = pKF->GetChilds();
+            for (auto sit = spChilds.begin(), send = spChilds.end(); sit != send; sit++)
             {
-                KeyFrame *pChildKF = *sit;
+                KeyFrame *pChildKF = sit->first;
                 if (!pChildKF->isBad())
                 {
                     if (pChildKF->mnTrackReferenceForFrame != mCurrentFrame.mnId)
