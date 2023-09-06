@@ -148,6 +148,7 @@ namespace ORB_SLAM2
 
     void LocalMapping::ProcessNewKeyFrame()
     {
+
         {//deque Provides efficient insertion and deletion at both ends (front and back)
             unique_lock<mutex> lock(mMutexNewKFs);
             mpCurrentKeyFrame = mlNewKeyFrames.front();
